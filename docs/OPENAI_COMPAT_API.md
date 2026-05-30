@@ -11,7 +11,7 @@ http://127.0.0.1:11435/v1
 启动服务：
 
 ```powershell
-cd "$env:USERPROFILE\Desktop\Chrome_Gemini_Nano_BareOnly"
+cd path\to\Chrome2api
 .\启动API服务.ps1
 ```
 
@@ -22,6 +22,29 @@ cd "$env:USERPROFILE\Desktop\Chrome_Gemini_Nano_BareOnly"
 ```
 
 ## Authentication
+
+## Required Local Runtime Files
+
+This API server calls the local bare runner. The repository intentionally does
+not include Google model/runtime files. Before starting the service, place these
+files locally:
+
+```text
+runtime\ChromeMLBareRunner.exe
+runtime\optimization_guide_internal.dll
+runtime\webgpu_dawn.dll
+model\OptGuideOnDeviceModel\2025.8.8.1141\weights.bin
+```
+
+`ChromeMLBareRunner.exe` can be built from source with:
+
+```powershell
+.\scripts\build_runner.ps1
+```
+
+The DLLs and `weights.bin` must be supplied by the user from their own compatible
+Chrome / Chrome component installation. They are not uploaded to GitHub and
+should not be redistributed in this repository.
 
 本地服务默认不校验 API key。为了兼容 OpenAI SDK 或已有客户端，可以传任意 Bearer token：
 
@@ -349,4 +372,3 @@ Common cases:
 | Tool calls | Not supported |
 | JSON schema / structured outputs | Not supported |
 | Embeddings, responses, assistants, files | Not implemented |
-
