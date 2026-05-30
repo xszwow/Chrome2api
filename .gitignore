@@ -1,0 +1,30 @@
+# Runtime binaries and proprietary/local assets
+*.exe
+*.dll
+*.lib
+*.pdb
+*.bin
+*.tflite
+*.tfl3
+*.pak
+*.dat
+
+# Logs and temporary outputs
+*.log
+runtime/api_server.stdout.log
+runtime/api_server.stderr.log
+tools/
+tmp/
+
+# Local model/runtime folders
+model/OptGuideOnDeviceModel/*/weights.bin
+runtime/optimization_guide_internal.dll
+runtime/webgpu_dawn.dll
+
+# Node / editor / OS
+node_modules/
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

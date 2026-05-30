@@ -1,0 +1,33 @@
+Chrome2api Notice
+=================
+
+This repository contains project-authored code plus reference files from
+Chromium and Dawn/WebGPU sources.
+
+Project-authored code:
+- runtime/ChromeMLBareRunner.cpp
+- runtime/chromeml_api_server.cjs
+- PowerShell wrapper scripts
+- documentation authored for this project
+
+Third-party reference files:
+- reference/chrome_ml_api.h
+- reference/chrome_ml_types.h
+- reference/on_device_model_executor.cc
+- runtime/tag_148_headers/dawn/*.h
+
+Chromium reference files are copyright The Chromium Authors and governed by
+their BSD-style license headers.
+
+Dawn/WebGPU generated headers are governed by their BSD 3-Clause license
+headers.
+
+This repository does not include and does not license:
+- Google model weights, including weights.bin
+- optimization_guide_internal.dll
+- webgpu_dawn.dll
+- Chrome binaries
+
+Users must obtain those files separately and comply with their applicable
+licenses and terms.
+
