@@ -173,3 +173,7 @@ Project-authored source is released under the MIT License. Chromium and Dawn
 reference files remain under their original BSD-style licenses. Google model
 weights and proprietary runtime binaries are not included and are not licensed
 by this project.
+
+## 友情链接
+
+- [LINUX.DO](https://linux.do/)
