@@ -20,6 +20,7 @@ const MAX_BODY_BYTES = parseInt(
   process.env.CHROMEML_API_MAX_BODY_BYTES || String(10 * 1024 * 1024),
   10,
 );
+const TEMP_MEDIA_DIR = path.join(ROOT_DIR, "runtime", "tmp", "media");
 const DEBUG_PROMPT = process.env.CHROMEML_API_DEBUG_PROMPT === "1";
 
 let runnerQueue = Promise.resolve();
@@ -170,6 +171,59 @@ function normalizeLocalPath(raw, label) {
   return pathForRunner(localPath);
 }
 
+function decodeDataImageToTempFile(raw, label, media) {
+  if (typeof raw !== "string") {
+    return null;
+  }
+
+  const match = raw.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,([\s\S]*)$/);
+  if (!match) {
+    return null;
+  }
+
+  const format = match[1].toLowerCase();
+  const extensionMap = {
+    jpeg: "jpg",
+    jpg: "jpg",
+    png: "png",
+    gif: "gif",
+    bmp: "bmp",
+    webp: "webp",
+    tiff: "tiff",
+  };
+  const extension = extensionMap[format];
+  if (!extension) {
+    throw new HttpError(400, `${label} data image format is not supported: ${format}`);
+  }
+
+  let bytes;
+  try {
+    bytes = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
+  } catch (err) {
+    throw new HttpError(400, `${label} data image base64 is invalid`);
+  }
+
+  if (bytes.length === 0) {
+    throw new HttpError(400, `${label} data image is empty`);
+  }
+  if (bytes.length > MAX_BODY_BYTES) {
+    throw new HttpError(413, `${label} data image is too large`);
+  }
+
+  fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
+  const filename = `image-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}.${extension}`;
+  const localPath = path.join(TEMP_MEDIA_DIR, filename);
+  fs.writeFileSync(localPath, bytes);
+  media.tempFiles.push(localPath);
+  return pathForRunner(localPath);
+}
+
+function normalizeImageInput(raw, label, media) {
+  return decodeDataImageToTempFile(raw, label, media) || normalizeLocalPath(raw, label);
+}
+
 function pathForRunner(localPath) {
   const relative = path.relative(ROOT_DIR, localPath);
   if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
@@ -242,7 +296,7 @@ function extractContent(message, media) {
         throw new HttpError(400, "image_url must contain a URL or path");
       }
       const imageIndex = media.imagePaths.length + 1;
-      media.imagePaths.push(normalizeLocalPath(raw, `image_url[${imageIndex}]`));
+      media.imagePaths.push(normalizeImageInput(raw, `image_url[${imageIndex}]`, media));
       textParts.push(`[Image ${imageIndex} attached]`);
       continue;
     }
@@ -449,6 +503,18 @@ function runRunner(job, options = {}) {
   });
 }
 
+function cleanupTempFiles(files) {
+  for (const file of files || []) {
+    try {
+      fs.unlinkSync(file);
+    } catch (err) {
+      if (DEBUG_PROMPT) {
+        console.error(`failed to delete temp file ${file}:`, err.message);
+      }
+    }
+  }
+}
+
 function enqueueRunner(job) {
   const current = runnerQueue.then(() => runRunner(job));
   runnerQueue = current.catch(() => {});
@@ -595,6 +661,7 @@ async function handleChatCompletions(req, res) {
     const media = {
       imagePaths: [],
       audioPath: null,
+      tempFiles: [],
     };
     const prompt = buildPrompt(body.messages, media);
 
@@ -616,15 +683,20 @@ async function handleChatCompletions(req, res) {
       short: Boolean(body.short),
       top1: Boolean(body.top1 || body.top_1),
       noSafetyReserve: Boolean(body.no_safety_reserve || body.noSafetyReserve),
+      tempFiles: media.tempFiles,
     };
 
-    if (body.stream) {
-      await streamCompletionResponse(body, job, res);
-      return;
-    }
+    try {
+      if (body.stream) {
+        await streamCompletionResponse(body, job, res);
+        return;
+      }
 
-    const result = await enqueueRunner(job);
-    sendJson(res, 200, createCompletionResponse(body, result.text));
+      const result = await enqueueRunner(job);
+      sendJson(res, 200, createCompletionResponse(body, result.text));
+    } finally {
+      cleanupTempFiles(job.tempFiles);
+    }
   } catch (err) {
     if (err instanceof HttpError) {
       sendError(res, err.status, err.message);
